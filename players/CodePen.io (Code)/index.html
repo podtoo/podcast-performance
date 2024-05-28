@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podcast Performance Player</title>
+    <style type="text/css">
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            background-color: #000; /* Ensure the background is black */
+            color: #00ff00; /* Terminal green text color */
+            font-family: 'Courier New', Courier, monospace; /* Terminal font */
+        }
+
+        audio {
+            display:inline-block;
+            float:left;
+            width: 90%;
+            background: #000;
+            color: #fff;
+        }
+        #changeRssButton{
+        display:inline-block;
+        float:left;
+        width:9%;
+        height:30px;
+        }
+
+        .controls {
+            text-align: center;
+            background: #000;
+            padding: 10px 0;
+            max-height:300px;
+            overflow-y: auto;
+        }
+
+        .terminal {
+            display: flex;
+            flex-grow: 1;
+            background-color: #000;
+        }
+
+        .logContainer {
+            width: 30%;
+            max-height: 100%;
+            overflow-y: auto;
+            padding: 10px;
+            box-sizing: border-box; /* Ensure padding does not affect element size */
+        }
+        .logContainerInfo {
+            width: 70%;
+            max-height: 100%;
+            overflow-y: auto;
+            padding: 10px;
+            box-sizing: border-box; /* Ensure padding does not affect element size */
+        }
+
+        #logDiv2, #logDiv3{
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .redBackground {
+            background-color: #000;
+        }
+
+        .blueBackground {
+            background-color: #000;
+        }
+
+        .episode-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .episode-list li {
+            margin: 5px 0;
+        }
+
+        .episode-list button {
+            width: 100%;
+            background: #111;
+            color: #00ff00;
+            border: none;
+            padding: 10px;
+            text-align: left;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .episode-list button:hover {
+            background: #222;
+        }
+
+        /* Ensuring that the scrollbars are styled for a better terminal look */
+        .logContainer::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        .logContainer::-webkit-scrollbar-track {
+            background: #111; 
+        }
+
+        .logContainer::-webkit-scrollbar-thumb {
+            background: #444; 
+        }
+
+        .logContainer::-webkit-scrollbar-thumb:hover {
+            background: #555; 
+        }
+
+        /* Custom scrollbar styles */
+        #logDiv2::-webkit-scrollbar, #logDiv3::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        #logDiv2::-webkit-scrollbar-track, #logDiv3::-webkit-scrollbar-track {
+            background: #000; /* Black background */
+            border: 1px solid #00ff00; /* Green border */
+        }
+
+        #logDiv2::-webkit-scrollbar-thumb, #logDiv3::-webkit-scrollbar-thumb {
+            background: #444; /* Dark grey thumb */
+            border: 2px solid #00ff00; /* Green border around thumb */
+        }
+
+        #logDiv2::-webkit-scrollbar-thumb:hover, #logDiv3::-webkit-scrollbar-thumb:hover {
+            background: #555; /* Slightly lighter grey on hover */
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.9); /* Black w/ opacity */
+            padding-top: 60px;
+        }
+
+        .modal-content {
+            background-color: #000;
+            margin: 5% auto; /* 15% from the top and centered */
+            padding: 20px;
+            border: 1px solid #00ff00;
+            width: 80%; /* Could be more or less, depending on screen size */
+            color: #00ff00;
+        }
+
+        .error-message {
+                    color: red;
+                    margin-top: 10px;
+                }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        input[type=text] {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            box-sizing: border-box;
+            border: 2px solid #00ff00;
+            background-color: #000;
+            color: #00ff00;
+        }
+    </style>
+    <body>
+        <div><audio id="audioPlayer" controls>
+            <source id="audioSource" src="https://cdn.podtoo.com/syndication/2023/08/0335b1ad-14b9-4f57-944d-28ca848efec2.mp3" type="audio/mpeg">
+            Your browser does not support the audio element.
+        </audio>
+        <button id="changeRssButton">Change RSS Feed</button>
+        </div>
+        
+        <div id="rssModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <label for="rssInput">Enter RSS Feed URL:</label>
+                <input type="text" id="rssInput" placeholder="Enter new RSS feed URL">
+                <button id="loadRssButton">Load RSS Feed</button>
+               <div id="errorMessage" class="error-message"></div>
+            </div>
+        </div>
+        <div class="controls">
+            <ul id="episodeList" class="episode-list"></ul>
+        </div>
+        <div class="terminal">
+            
+            <div class="logContainerInfo blueBackground">
+                <div id="logDiv3">
+                  <small>This code was made in 8 hours - As a proof of concept.</small>
+                 <h2>Core Feature Explanation</h2>
+        <p><strong>Purpose:</strong><br>
+        The main goal of this code is to demonstrate the possibility that <code>&lt;podcast:performance&gt;</code> can gather and send information about how users interact with podcast episodes. This information is then sent back to the podcast creator to help them understand how their audience is engaging with the content.</p>
+        
+        <h3>How It Works:</h3>
+        <ol>
+            <li><strong>Log User Interaction:</strong>
+                <ul>
+                    <li><strong>Play Events:</strong> Every second while the audio is playing, the code logs the current time in the podcast.</li>
+                    <li><strong>Seek Events:</strong> If the user skips forward or backward in the podcast (seeks), the new time is logged.</li>
+                    <li><strong>End Events:</strong> When the podcast finishes playing, the end time is logged.</li>
+                </ul>
+            </li>
+            <li><strong>Store Interaction Data:</strong><br>
+            The times and types of interactions (play, pause, seek, end) are stored in a list called <code>playData</code>.</li>
+            <li><strong>Send Interaction Data to Server:</strong><br>
+            When certain events occur (like switching podcast episodes, finishing the episode, or exiting the page), the code sends the collected <code>playData</code> to a server. The server URL is dynamically fetched from the podcast's RSS feed to ensure the data is sent to the correct endpoint. This data includes the specific time points and the type of interaction that happened at those times.</li>
+            <li><strong>Update Podcast Episode:</strong><br>
+            The code also allows users to switch between different podcast episodes. When a new episode is selected, the interaction data for the current episode is sent to the server before switching to the new episode.</li>
+        </ol>
+        
+        <h3>Benefit for Podcast Creators:</h3>
+        <p>By gathering and sending this data, podcast creators can gain insights into how listeners interact with their episodes. They can see where listeners tend to skip or stop, which parts are most engaging, and overall how the content is being consumed. This feedback can be valuable for improving future episodes and understanding audience preferences.</p>
+        
+        <p>This feature allows a user to listen, pause, and seek a podcast episode. When they either:</p>
+        <ol>
+            <li>Change the episode</li>
+            <li>Exit the window</li>
+        </ol>
+        <p>The function <code>sendPlayDataToServer</code> is triggered to batch send the data:</p>
+        <pre><code>
+        function sendPlayDataToServer() {
+            return fetch('GET THIS FROM podcast:performance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'episodeguid': currentEpisodeGUID
+                },
+                body: JSON.stringify(playData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+                updateJsonLog();
+                // Reset playData after successful data send
+                playData = [];
+                lastTime = 0;
+            })
+            .catch((error) => console.error('Error:', error));
+        }
+        </code></pre>
+        
+        <h3>Why is episode performance important?</h3>
+        <p>Bots and other scripts can send a large number of download requests. While many podcast hosting companies, including PodToo, do their best to identify and disregard these numbers, some still slip through. Episode performance tracking, although not a complete solution, allows us to show podcast creators how much of an episode listeners are engaging with.</p>
+        <p>This insight enables podcast creators to determine if their episodes are too long or if certain parts, such as the first 30 seconds of intro music, are being skipped. Additionally, it provides valuable data on the engagement level of an episode, information that was previously unavailable to podcast creators.</p>
+        
+        <h3>Why should I integrate this into my app?</h3>
+        <p>Adding this feature demonstrates that your app cares about podcast creators and their listeners. Your app's total listener engagement time will be recorded, potentially making it the top app in terms of listener engagement. This could lead podcast creators to promote your app over others.</p>
+        <p>Platforms like Spotify are popular among podcasters because they offer features like Q&A and episode performance tracking. However, no single platform should dominate the market. By supporting an open standard that can be integrated into any Podcast 2.0 app, podcasters are more likely to support Podcast 2.0 over sticking exclusively with platforms like Spotify.</p>
+        
+        <h3>How do I integrate this into my podcast?</h3>
+        <p>As part of our commitment to supporting the community, PodToo will publish the code to host your own performance tracker server in the coming days. If you don't self-host, services like PodToo have already integrated this tag into their system, and you can access the stats in your dashboard. If you want to host your own performance server but use another provider, please ask them to support this tag. Keep a lookout here as I'll update this with all the providers and apps that support this.</p>
+                </div>
+            </div>
+            <div class="logContainer blueBackground">
+                <div id="logDiv2"></div>
+            </div>
+        </div>  
+        
+        <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const audioPlayer = document.getElementById('audioPlayer');
+            const audioSource = document.getElementById('audioSource');
+            const logDiv2 = document.getElementById('logDiv2');
+            const episodeList = document.getElementById('episodeList');
+            const changeRssButton = document.getElementById('changeRssButton');
+            const rssModal = document.getElementById('rssModal');
+            const closeModal = document.querySelector('.close');
+            const loadRssButton = document.getElementById('loadRssButton');
+            const rssInput = document.getElementById('rssInput');
+            const errorMessage = document.getElementById('errorMessage');
+
+            let playData = [];
+            let lastTime = 0;
+            let interval;
+            let currentEpisodeGUID = ''; // Initialize with an empty GUID
+            let performanceUrl = ''; // Initialize with an empty performance URL
+
+            // DIV TERMINAL CODE
+
+            function updateJsonLog() {
+                logDiv2.innerHTML = `<pre>${JSON.stringify(playData, null, 2)}</pre>`;
+                scrollToBottom(logDiv2);
+            }
+
+            function scrollToBottom(element) {
+                element.scrollTop = element.scrollHeight;
+            }
+
+            // PLAYER CODE
+
+            function formatTime(seconds) {
+                const hrs = Math.floor(seconds / 3600);
+                const mins = Math.floor((seconds % 3600) / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }
+
+            function startLogging() {
+                interval = setInterval(() => {
+                    if (!audioPlayer.paused) {
+                        const currentTime = audioPlayer.currentTime;
+
+                        // Log play event every second
+                        if (playData.length === 0 || playData[playData.length - 1].time !== currentTime || playData[playData.length - 1].event !== 'play') {
+                            playData.push({ time: currentTime, event: 'play' });
+                            updateJsonLog();
+                        }
+
+                        lastTime = currentTime;
+                    } else {
+                        clearInterval(interval);
+                    }
+                }, 1000);
+            }
+
+            function stopLogging() {
+                clearInterval(interval);
+            }
+
+            function sendPlayDataToServer() {
+                return fetch(performanceUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'episodeguid': currentEpisodeGUID
+                    },
+                    body: JSON.stringify(playData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Success:', data);
+                    updateJsonLog();
+                    // Reset playData after successful data send
+                    playData = [];
+                    lastTime = 0;
+                })
+                .catch((error) => console.error('Error:', error));
+            }
+
+            audioPlayer.addEventListener('play', () => {
+                if (!interval) {
+                    startLogging();
+                }
+            });
+
+            audioPlayer.addEventListener('pause', () => {
+                stopLogging();
+                sendPlayDataToServer();
+                interval = null;
+            });
+
+            audioPlayer.addEventListener('seeked', () => {
+                const currentTime = audioPlayer.currentTime;
+                if (Math.abs(currentTime - lastTime) > 2) {
+                    if (playData.length === 0 || playData[playData.length - 1].time !== currentTime || playData[playData.length - 1].event !== 'seek') {
+                        playData.push({ time: currentTime, event: 'seek' });
+                        updateJsonLog();
+                    }
+                    lastTime = currentTime;
+                }
+                if (!audioPlayer.paused && !interval) {
+                    startLogging();
+                }
+            });
+
+            audioPlayer.addEventListener('ended', () => {
+                playData.push({ time: audioPlayer.currentTime, event: 'ended' });
+                updateJsonLog();
+                
+                stopLogging();
+                sendPlayDataToServer();
+                interval = null;
+            });
+
+            window.addEventListener('beforeunload', () => {
+                sendPlayDataToServer();
+            });
+
+            audioPlayer.addEventListener('beforeunload', () => {
+                sendPlayDataToServer();
+            });
+
+            audioPlayer.addEventListener('loadeddata', () => {
+                // Do nothing, as we will reset playData only after sending it to the server
+            });
+
+            function switchAudioSource(newSource, newEpisodeGUID) {
+                sendPlayDataToServer().then(() => {
+                    currentEpisodeGUID = newEpisodeGUID; // Update the current episode GUID
+                    audioSource.src = newSource;
+                    audioPlayer.load();
+                    audioPlayer.play();
+                });
+            }
+
+            function loadPodcastEpisodes(rssUrl = 'https://feed.podtoo.com/distro/TzpJU4Pq') {
+                fetch(rssUrl)
+                    .then(response => response.text())
+                    .then(data => {
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(data, "text/xml");
+                        
+                        const channel = xmlDoc.getElementsByTagName('channel')[0];
+
+                        // Get performance URL
+                        const performanceNode = channel.getElementsByTagName('podcast:performance')[0];
+                        if (performanceNode) {
+                            performanceUrl = performanceNode.textContent;
+                        } else {
+                            errorMessage.textContent = "Error: The RSS feed does not contain a performance URL.";
+                            return; // Exit if performance URL is not found
+                        }
+                  
+                  
+                  
+                  
+                        const items = xmlDoc.getElementsByTagName('item');
+                        episodeList.innerHTML = ''; // Clear the list
+
+                        for (let i = 0; i < items.length; i++) {
+                            const title = items[i].getElementsByTagName('title')[0].textContent;
+                            const guid = items[i].getElementsByTagName('guid')[0].textContent;
+                            const enclosure = items[i].getElementsByTagName('enclosure')[0];
+                            const audioUrl = enclosure.getAttribute('url');
+
+                            const li = document.createElement('li');
+                            const button = document.createElement('button');
+                            button.textContent = title;
+                            button.addEventListener('click', () => {
+                                switchAudioSource(audioUrl, guid);
+                            });
+
+                            li.appendChild(button);
+                            episodeList.appendChild(li);
+
+                            // Preload the latest episode
+                            if (i === 0) {
+                                currentEpisodeGUID = guid;
+                                audioSource.src = audioUrl;
+                                audioPlayer.load();
+                            }
+                        }
+
+                        // Clear any previous error message
+                        errorMessage.textContent = '';
+                        rssModal.style.display = "none"; // Close the modal
+                    })
+                    .catch(error => {
+                        console.error('Error fetching RSS feed:', error);
+                        errorMessage.textContent = "Error: Unable to fetch RSS feed.";
+                    });
+            }
+
+            // Event listener for change RSS button
+            changeRssButton.addEventListener('click', () => {
+                rssModal.style.display = "block";
+            });
+
+            // Event listener for close button in modal
+            closeModal.addEventListener('click', () => {
+                rssModal.style.display = "none";
+            });
+
+            // Event listener for loading new RSS feed
+            loadRssButton.addEventListener('click', () => {
+                const newRssUrl = rssInput.value;
+                if (newRssUrl) {
+                    loadPodcastEpisodes(newRssUrl);
+                }
+            });
+
+            // Load default podcast episodes on page load
+            loadPodcastEpisodes();
+        });
+        </script>
+    </body>
+</html>
