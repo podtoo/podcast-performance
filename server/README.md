@@ -9,5 +9,6 @@ Due to that this is designed to only support your episode GUID that you have in 
 
 # Server Code
 Our server code will support the following technology
-- MongoDB, MySQl, Firebase
+- MongoDB (atlas or local), MySQl, Firebase
 - ExpressJS
+- Docker
