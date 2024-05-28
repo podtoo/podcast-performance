@@ -1,0 +1,29 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "Podcast-Performance/server is our open source code that allows anyone to host their own `<podcast:performance>` server and get key metrics of their episode data.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node dist/server.js",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/mongodb": "^4.0.7",
+    "@types/node": "^20.12.12",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "firebase-admin": "^12.1.1",
+    "mongodb": "^6.6.2",
+    "mysql2": "^3.9.8",
+    "node-fetch": "^3.3.2",
+    "pm2": "^5.4.0",
+    "typescript": "^5.4.5"
+  },
+  "devDependencies": {
+    "@types/node-fetch": "^2.6.11"
+  }
+}
