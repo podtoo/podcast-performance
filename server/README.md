@@ -36,11 +36,17 @@ We do want to add more database types in the near future.
 DB_TYPE=mongodb
 
 # MongoDB Atlas
-MONGO_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/<dbname>?retryWrites=true&w=majority
-MONGODB_DB=DATABSE
+MONGO_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DB=DATABASE
+MONGODB_EPISODE_DB=COLLECTION YOUR EPISODES ARE STORED IN
 
 # Firebase - COMING SOON
 FIREBASE_PROJECT_ID=your_firebase_project_id
 FIREBASE_CLIENT_EMAIL=your_firebase_client_email
 FIREBASE_PRIVATE_KEY=your_firebase_private_key
 ```
+
+## How to fetch my episode performance data
+1. Do a GET request http://(YOUR IP OR DOMAIN):7000/episodeperformance/(YOUR EPISODE GUID)
+
+You will see all the play performance data for that GUID. The code has already put it in percentage numbers for you 100 being 100% note you will get things like 33.3333333 as we have not rounded any of these numbers, we do that in d3
