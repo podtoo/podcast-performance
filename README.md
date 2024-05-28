@@ -1,6 +1,9 @@
 # podcast-performance
 Podcast-Performance is our open source code that allows anyone to host their own `<podcast:performance>` server and get key metrics of their episode data.
 
+# Demo of idea
+You can view the source code for a javascript web based player here - https://codepen.io/redimongo/full/BaeQyaP 
+We will publish Swift code asap.
 
 # Why is episode performance important?
 Bots and other scripts can send a large number of download requests. While many podcast hosting companies, including PodToo, do their best to identify and disregard these numbers, some still slip through. Episode performance gathering however means we can verify that a user listened to the episode which means these bots become a thing of the past (unless they want to listen to the episode too), the Podcast Performance allows us to show podcast creators how much of an episode listeners are engaging too.
