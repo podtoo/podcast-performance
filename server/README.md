@@ -10,6 +10,10 @@ You can view the source code for a JavaScript web-based player [here](https://co
 
 As this is designed to only support the episode GUIDs in your database, we don't have an open demo server. However, we hope that this server code is easy to use and straightforward. Please comment on any issues you encounter.
 
+## PLEASE RESPECT PEOPLES PRIVACY
+
+As some of the community has pointed out, they don't want IP addresses stored. So I have added a middleware that currently Hashes the IP address and User-agent
+
 ## Server Code
 
 Our server code supports the following technologies:
