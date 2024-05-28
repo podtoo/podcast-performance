@@ -4,8 +4,6 @@ FROM node:alpine
 # Set the working directory
 WORKDIR /usr/app
 
-# Install PM2 globally
-RUN npm install --global pm2
 
 # Copy "package.json" and "package-lock.json" before other files
 # Utilize Docker cache to save re-installing dependencies if unchanged
@@ -30,5 +28,5 @@ EXPOSE 7000
 # The "node" user is provided in the Node.js Alpine base image
 USER node
 
-# Launch the app with PM2 and run the built server.js file
-CMD [ "pm2-runtime", "start", "dist/server.js" ]
+# Launch the app with Node.js, enabling ES Module support
+CMD [ "node", "--experimental-modules", "dist/server.js" ]
