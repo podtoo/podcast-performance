@@ -29,3 +29,6 @@ If you want to host your own performance server but use another provider, please
 # We are a hosting provider who supports this tag, can we get a plug?
 Totally, just reach out to me via russell@podtoo.com and we would be happy to add your logo to this page.
 
+![PodToo](https://podtoo.com/PodLogo-NoTag-2-01.b9d40225.svg)
+
+
