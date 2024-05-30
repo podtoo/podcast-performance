@@ -279,221 +279,235 @@
         </div>  
         
         <script type="text/javascript">
-        document.addEventListener('DOMContentLoaded', (event) => {
-            const audioPlayer = document.getElementById('audioPlayer');
-            const audioSource = document.getElementById('audioSource');
-            const logDiv2 = document.getElementById('logDiv2');
-            const episodeList = document.getElementById('episodeList');
-            const changeRssButton = document.getElementById('changeRssButton');
-            const rssModal = document.getElementById('rssModal');
-            const closeModal = document.querySelector('.close');
-            const loadRssButton = document.getElementById('loadRssButton');
-            const rssInput = document.getElementById('rssInput');
-            const errorMessage = document.getElementById('errorMessage');
+            document.addEventListener('DOMContentLoaded', (event) => {
+                const audioPlayer = document.getElementById('audioPlayer');
+                const audioSource = document.getElementById('audioSource');
+                const logDiv2 = document.getElementById('logDiv2');
+                const episodeList = document.getElementById('episodeList');
+                const changeRssButton = document.getElementById('changeRssButton');
+                const rssModal = document.getElementById('rssModal');
+                const closeModal = document.querySelector('.close');
+                const loadRssButton = document.getElementById('loadRssButton');
+                const rssInput = document.getElementById('rssInput');
+                const errorMessage = document.getElementById('errorMessage');
 
-            let playData = [];
-            let lastTime = 0;
-            let interval;
-            let currentEpisodeGUID = ''; // Initialize with an empty GUID
-            let performanceUrl = ''; // Initialize with an empty performance URL
+                let playData = [];
+                let lastTime = 0;
+                let interval;
+                let currentEpisodeGUID = ''; // Initialize with an empty GUID
+                let performanceUrl = ''; // Initialize with an empty performance URL
+                let tokenExpires = 0;
+                let loggingInterval = 1; // Default interval in seconds
 
-            // DIV TERMINAL CODE
-
-            function updateJsonLog() {
-                logDiv2.innerHTML = `<pre>${JSON.stringify(playData, null, 2)}</pre>`;
-                scrollToBottom(logDiv2);
-            }
-
-            function scrollToBottom(element) {
-                element.scrollTop = element.scrollHeight;
-            }
-
-            // PLAYER CODE
-
-            function formatTime(seconds) {
-                const hrs = Math.floor(seconds / 3600);
-                const mins = Math.floor((seconds % 3600) / 60);
-                const secs = Math.floor(seconds % 60);
-                return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-            }
-
-            function startLogging() {
-                interval = setInterval(() => {
-                    if (!audioPlayer.paused) {
-                        const currentTime = audioPlayer.currentTime;
-
-                        // Log play event every second
-                        if (playData.length === 0 || playData[playData.length - 1].time !== currentTime || playData[playData.length - 1].event !== 'play') {
-                            playData.push({ time: currentTime, event: 'play' });
-                            updateJsonLog();
-                        }
-
-                        lastTime = currentTime;
-                    } else {
-                        clearInterval(interval);
-                    }
-                }, 1000);
-            }
-
-            function stopLogging() {
-                clearInterval(interval);
-            }
-
-            function sendPlayDataToServer() {
-                return fetch(performanceUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'episodeguid': currentEpisodeGUID
-                    },
-                    body: JSON.stringify(playData)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Success:', data);
-                    updateJsonLog();
-                    // Reset playData after successful data send
-                    playData = [];
-                    lastTime = 0;
-                })
-                .catch((error) => console.error('Error:', error));
-            }
-
-            audioPlayer.addEventListener('play', () => {
-                if (!interval) {
-                    startLogging();
+                function updateJsonLog() {
+                    logDiv2.innerHTML = `<pre>${JSON.stringify(playData, null, 2)}</pre>`;
+                    scrollToBottom(logDiv2);
                 }
-            });
 
-            audioPlayer.addEventListener('pause', () => {
-                stopLogging();
-                sendPlayDataToServer();
-                interval = null;
-            });
+                function scrollToBottom(element) {
+                    element.scrollTop = element.scrollHeight;
+                }
 
-            audioPlayer.addEventListener('seeked', () => {
-                const currentTime = audioPlayer.currentTime;
-                if (Math.abs(currentTime - lastTime) > 2) {
-                    if (playData.length === 0 || playData[playData.length - 1].time !== currentTime || playData[playData.length - 1].event !== 'seek') {
-                        playData.push({ time: currentTime, event: 'seek' });
+                function formatTime(seconds) {
+                    const hrs = Math.floor(seconds / 3600);
+                    const mins = Math.floor((seconds % 3600) / 60);
+                    const secs = Math.floor(seconds % 60);
+                    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                }
+
+                function startLogging() {
+                    if (playData.length === 0) {
+                        // Ensure playtime 0 is logged when playback starts
+                        playData.push({ time: 0, event: 'play' });
                         updateJsonLog();
                     }
-                    lastTime = currentTime;
-                }
-                if (!audioPlayer.paused && !interval) {
-                    startLogging();
-                }
-            });
 
-            audioPlayer.addEventListener('ended', () => {
-                playData.push({ time: audioPlayer.currentTime, event: 'ended' });
-                updateJsonLog();
-                
-                stopLogging();
-                sendPlayDataToServer();
-                interval = null;
-            });
+                    interval = setInterval(() => {
+                        if (!audioPlayer.paused) {
+                            const currentTime = audioPlayer.currentTime;
 
-            window.addEventListener('beforeunload', () => {
-                sendPlayDataToServer();
-            });
-
-            audioPlayer.addEventListener('beforeunload', () => {
-                sendPlayDataToServer();
-            });
-
-            audioPlayer.addEventListener('loadeddata', () => {
-                // Do nothing, as we will reset playData only after sending it to the server
-            });
-
-            function switchAudioSource(newSource, newEpisodeGUID) {
-                sendPlayDataToServer().then(() => {
-                    currentEpisodeGUID = newEpisodeGUID; // Update the current episode GUID
-                    audioSource.src = newSource;
-                    audioPlayer.load();
-                    audioPlayer.play();
-                });
-            }
-
-            function loadPodcastEpisodes(rssUrl = 'https://feed.podtoo.com/distro/TzpJU4Pq') {
-                fetch(rssUrl)
-                    .then(response => response.text())
-                    .then(data => {
-                        const parser = new DOMParser();
-                        const xmlDoc = parser.parseFromString(data, "text/xml");
-                        
-                        const channel = xmlDoc.getElementsByTagName('channel')[0];
-
-                        // Get performance URL
-                        const performanceNode = channel.getElementsByTagName('podcast:performance')[0];
-                        if (performanceNode) {
-                            performanceUrl = performanceNode.textContent;
-                        } else {
-                            errorMessage.textContent = "Error: The RSS feed does not contain a performance URL.";
-                            return; // Exit if performance URL is not found
-                        }
-                  
-                  
-                  
-                  
-                        const items = xmlDoc.getElementsByTagName('item');
-                        episodeList.innerHTML = ''; // Clear the list
-
-                        for (let i = 0; i < items.length; i++) {
-                            const title = items[i].getElementsByTagName('title')[0].textContent;
-                            const guid = items[i].getElementsByTagName('guid')[0].textContent;
-                            const enclosure = items[i].getElementsByTagName('enclosure')[0];
-                            const audioUrl = enclosure.getAttribute('url');
-
-                            const li = document.createElement('li');
-                            const button = document.createElement('button');
-                            button.textContent = title;
-                            button.addEventListener('click', () => {
-                                switchAudioSource(audioUrl, guid);
-                            });
-
-                            li.appendChild(button);
-                            episodeList.appendChild(li);
-
-                            // Preload the latest episode
-                            if (i === 0) {
-                                currentEpisodeGUID = guid;
-                                audioSource.src = audioUrl;
-                                audioPlayer.load();
+                            // Log play event every loggingInterval seconds
+                            if (playData.length === 0 || playData[playData.length - 1].time !== currentTime || playData[playData.length - 1].event !== 'play') {
+                                playData.push({ time: currentTime, event: 'play' });
+                                updateJsonLog();
                             }
+
+                            lastTime = currentTime;
+                        } else {
+                            clearInterval(interval);
                         }
-
-                        // Clear any previous error message
-                        errorMessage.textContent = '';
-                        rssModal.style.display = "none"; // Close the modal
-                    })
-                    .catch(error => {
-                        console.error('Error fetching RSS feed:', error);
-                        errorMessage.textContent = "Error: Unable to fetch RSS feed.";
-                    });
-            }
-
-            // Event listener for change RSS button
-            changeRssButton.addEventListener('click', () => {
-                rssModal.style.display = "block";
-            });
-
-            // Event listener for close button in modal
-            closeModal.addEventListener('click', () => {
-                rssModal.style.display = "none";
-            });
-
-            // Event listener for loading new RSS feed
-            loadRssButton.addEventListener('click', () => {
-                const newRssUrl = rssInput.value;
-                if (newRssUrl) {
-                    loadPodcastEpisodes(newRssUrl);
+                    }, loggingInterval * 1000);
                 }
+
+                function stopLogging() {
+                    clearInterval(interval);
+                }
+
+                function sendPlayDataToServer() {
+                    // Ensure the last event is logged before sending data to the server
+                    if (playData.length === 0 || playData[playData.length - 1].time !== audioPlayer.currentTime) {
+                        playData.push({ time: audioPlayer.currentTime, event: 'pause' });
+                        updateJsonLog();
+                    }
+
+                
+                    return fetch(performanceUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'exp': String(tokenExpires),
+                            'episodeguid': currentEpisodeGUID
+                        },
+                        body: JSON.stringify(playData)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert('Success:', data);
+                        updateJsonLog();
+                        // Reset playData after successful data send
+                        playData = [];
+                        lastTime = 0;
+                    })
+                    .catch((error) => alert(`Error: ${error}`));
+                }
+
+                audioPlayer.addEventListener('play', () => {
+                    if (!interval) {
+                        startLogging();
+                    }
+                });
+
+                audioPlayer.addEventListener('pause', () => {
+                    stopLogging();
+                    interval = null;
+                });
+
+                audioPlayer.addEventListener('seeked', () => {
+                    const currentTime = audioPlayer.currentTime;
+                    if (Math.abs(currentTime - lastTime) > 2) {
+                        if (playData.length === 0 || playData[playData.length - 1].time !== currentTime || playData[playData.length - 1].event !== 'seek') {
+                            playData.push({ time: currentTime, event: 'seek' });
+                            updateJsonLog();
+                        }
+                        lastTime = currentTime;
+                    }
+                    if (!audioPlayer.paused && !interval) {
+                        startLogging();
+                    }
+                });
+
+                audioPlayer.addEventListener('ended', () => {
+                    playData.push({ time: audioPlayer.currentTime, event: 'ended' });
+                    updateJsonLog();
+                    
+                    stopLogging();
+                    sendPlayDataToServer();
+                    interval = null;
+                });
+
+                window.addEventListener('beforeunload', () => {
+                    sendPlayDataToServer();
+                });
+
+                audioPlayer.addEventListener('beforeunload', () => {
+                    sendPlayDataToServer();
+                });
+
+                audioPlayer.addEventListener('loadeddata', () => {
+                    // Do nothing, as we will reset playData only after sending it to the server
+                });
+
+                function switchAudioSource(newSource, newEpisodeGUID) {
+                    sendPlayDataToServer().then(() => {
+                        currentEpisodeGUID = newEpisodeGUID; // Update the current episode GUID
+                        audioSource.src = newSource;
+                        audioPlayer.load();
+                        audioPlayer.play();
+                    });
+                }
+
+                function loadPodcastEpisodes(rssUrl = 'https://feed.podtoo.com/QRBXpw10') {
+                    fetch(rssUrl)
+                        .then(response => response.text())
+                        .then(data => {
+                            const parser = new DOMParser();
+                            const xmlDoc = parser.parseFromString(data, "text/xml");
+                            
+                            const channel = xmlDoc.getElementsByTagName('channel')[0];
+
+                            // Get performance URL and other attributes
+                            const performanceNode = channel.getElementsByTagName('podcast:performance')[0];
+                            if (performanceNode) {
+                                performanceUrl = performanceNode.getAttribute('url');
+                                tokenExpires = performanceNode.getAttribute('tokenExpires');
+                                const duration = performanceNode.getAttribute('duration');
+
+                                // Set the logging interval based on the duration attribute
+                                loggingInterval = parseInt(duration, 10); // Convert duration to an integer in seconds
+                            } else {
+                                errorMessage.textContent = "Error: The RSS feed does not contain a performance URL.";
+                                return; // Exit if performance URL is not found
+                            }
+
+                            const items = xmlDoc.getElementsByTagName('item');
+                            episodeList.innerHTML = ''; // Clear the list
+
+                            for (let i = 0; i < items.length; i++) {
+                                const title = items[i].getElementsByTagName('title')[0].textContent;
+                                const guid = items[i].getElementsByTagName('guid')[0].textContent;
+                                const enclosure = items[i].getElementsByTagName('enclosure')[0];
+                                const audioUrl = enclosure.getAttribute('url');
+
+                                const li = document.createElement('li');
+                                const button = document.createElement('button');
+                                button.textContent = title;
+                                button.addEventListener('click', () => {
+                                    switchAudioSource(audioUrl, guid);
+                                });
+
+                                li.appendChild(button);
+                                episodeList.appendChild(li);
+
+                                // Preload the latest episode
+                                if (i === 0) {
+                                    currentEpisodeGUID = guid;
+                                    audioSource.src = audioUrl;
+                                    audioPlayer.load();
+                                }
+                            }
+
+                            // Clear any previous error message
+                            errorMessage.textContent = '';
+                            rssModal.style.display = "none"; // Close the modal
+                        })
+                        .catch(error => {
+                            console.error('Error fetching RSS feed:', error);
+                            errorMessage.textContent = "Error: Unable to fetch RSS feed.";
+                        });
+                }
+
+                // Event listener for change RSS button
+                changeRssButton.addEventListener('click', () => {
+                    rssModal.style.display = "block";
+                });
+
+                // Event listener for close button in modal
+                closeModal.addEventListener('click', () => {
+                    rssModal.style.display = "none";
+                });
+
+                // Event listener for loading new RSS feed
+                loadRssButton.addEventListener('click', () => {
+                    const newRssUrl = rssInput.value;
+                    if (newRssUrl) {
+                        loadPodcastEpisodes(newRssUrl);
+                    }
+                });
+
+                // Load default podcast episodes on page load
+                loadPodcastEpisodes();
             });
 
-            // Load default podcast episodes on page load
-            loadPodcastEpisodes();
-        });
         </script>
     </body>
 </html>
