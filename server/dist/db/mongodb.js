@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.insertDocument = exports.connectDB = void 0;
+exports.getPerformanceData = exports.checkEpisodeGUID = exports.insertDocument = exports.connectDB = void 0;
 const mongodb_1 = require("mongodb");
 const client = new mongodb_1.MongoClient(process.env.MONGODB_URI);
 let db;
@@ -25,3 +25,15 @@ const insertDocument = (data) => __awaiter(void 0, void 0, void 0, function* () 
     return result;
 });
 exports.insertDocument = insertDocument;
+const checkEpisodeGUID = (data) => __awaiter(void 0, void 0, void 0, function* () {
+    const collection = db.collection(process.env.MONGODB_EPISODE_DB);
+    const result = yield collection.findOne(data);
+    return result;
+});
+exports.checkEpisodeGUID = checkEpisodeGUID;
+const getPerformanceData = (data) => __awaiter(void 0, void 0, void 0, function* () {
+    const collection = db.collection('episode_performance');
+    const result = yield collection.find(data).toArray();
+    return result;
+});
+exports.getPerformanceData = getPerformanceData;

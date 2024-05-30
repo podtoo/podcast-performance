@@ -10,11 +10,31 @@ const connectDB = async (): Promise<void> => {
   console.log('MongoDB connected');
 };
 
+const saveToken = async (data: Record<string, any>): Promise<InsertOneResult<WithId<any>>> => {
+  const collection: Collection = db.collection('podcast_performance_token');
+  const result = await collection.insertOne(data);
+  return result;
+};
+
+const getToken = async (data: Record<string, any>): Promise<WithId<any> | null> => {
+  const collection: Collection = db.collection('podcast_performance_token');
+  const result = await collection.findOne(data);
+  return result;
+};
+
+
 const insertDocument = async (data: Record<string, any>): Promise<InsertOneResult<WithId<any>>> => {
   const collection: Collection = db.collection('episode_performance');
   const result = await collection.insertOne(data);
   return result;
 };
+
+const upsertDocument = async (filter: Record<string, any>, data: Record<string, any>): Promise<any> => {
+  const collection: Collection = db.collection('episode_performance');
+  const result = await collection.updateOne(filter, { $set: data }, { upsert: true });
+  return result;
+};
+
 
 const checkEpisodeGUID = async (data: Record<string, any>): Promise<WithId<any> | null> => {
   const collection: Collection = db.collection(process.env.MONGODB_EPISODE_DB as string);
@@ -31,7 +51,10 @@ const getPerformanceData = async (data: Record<string, any>): Promise<WithId<any
 
 export {
   connectDB,
+  saveToken,
+  getToken,
   insertDocument,
+  upsertDocument,
   checkEpisodeGUID,
   getPerformanceData
   // Add other MongoDB functions as needed

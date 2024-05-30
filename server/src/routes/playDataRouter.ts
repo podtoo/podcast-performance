@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { ObjectId } from 'mongodb';
 import { processPlayData, PlayEvent, ProcessedEvent } from '../utils/processing';
+import { getToken } from '../db/mongodb';
 
 const router = Router();
 
@@ -20,39 +21,83 @@ type DataItem = {
     data: EpisodeData[];
   };
 
-router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/:token', async (req: Request, res: Response, next: NextFunction) => {
     try {
+        const token = req.params.token;
         const episodeGUID = req.headers.episodeguid as string; // Extract the episodeGUID from the headers
-        const playData: PlayEvent[] = req.body;
-        const processedData: ProcessedEvent[] = processPlayData(playData);
-
-        // Store processedData in your database
-        console.log('Processed Data:', processedData);
-
-        const insertData = {
-            headers: req.headers,
-            data: processedData
-        };
+        const exp = parseInt(req.headers.exp as string, 10); // Extract the exp from the headers
+        const playData: PlayEvent[] = Array.isArray(req.body) ? req.body : []; // Ensure playData is an array
 
         if (!req.db) {
             throw new Error('Database connection not available');
         }
+        let tokenData
+        if(!exp){
+         tokenData = await req.db.getToken({ 's': token, 'exp': exp });
+        }
+        else{
+          tokenData = await req.db.getToken({ 's': token });
+        }
 
-        if (req.dbType === 'mysql') {
-            req.db.insertDocument(insertData, (error: Error, results: any) => {
-                if (error) {
-                    return next(error);
+        if (tokenData) {
+            const checkPastListen = await req.db.getPerformanceData({ 'session_id': tokenData._id });
+
+            if (checkPastListen && checkPastListen.length > 0) {
+                const pastData = checkPastListen[0]; // Assuming there is only one past data record
+
+                if (pastData['useragent'] === req.headers['user-agent']) {
+                    // Combine past listening data with new play data
+                    const sanitizedPastData = pastData.data;
+                    console.log(`Past Data - ${JSON.stringify(sanitizedPastData)}`);
+                    const sanitizedPlayData = playData;
+                    console.log(`currently Data - ${JSON.stringify(sanitizedPlayData)}`)
+                    // Combine past listening data with new play data
+                    const combinedData = sanitizedPastData.concat(sanitizedPlayData);
+                    console.log(JSON.stringify(combinedData));
+                    const processedData: ProcessedEvent[] = processPlayData(combinedData);
+                    
+
+                    // Store combined processedData in your database
+                    console.log('Processed Data:', processedData);
+
+                    const updateData = {
+                        session_id: tokenData._id,
+                        episodeGUID: episodeGUID,
+                        useragent: req.headers['user-agent'],
+                        data: processedData
+                    };
+
+                    const result = await req.db.upsertDocument({ session_id: tokenData._id, episodeGUID: episodeGUID }, updateData);
+                    res.json(result);
+                } else {
+                    res.status(400).json({ error: 'User-agent mismatch' });
                 }
-                res.json(results);
-            });
+            } else {
+                const processedData: ProcessedEvent[] = processPlayData(playData);
+
+                // Store processedData in your database
+                console.log('Processed Data:', processedData);
+
+                const updateData = {
+                    session_id: tokenData._id,
+                    episodeGUID: episodeGUID,
+                    useragent: req.headers['user-agent'],
+                    data: processedData
+                };
+
+                const result = await req.db.upsertDocument({ session_id: tokenData._id, episodeGUID: episodeGUID }, updateData);
+                res.json(result);
+            }
         } else {
-            const result = await req.db.insertDocument(insertData);
-            res.json(result);
+          console.log(`Token not found - { 's': ${token}, 'exp': ${exp} }`);
+            res.status(404).json({ error: `Token not found - { 's': ${token}, 'exp': ${exp} }` });
         }
     } catch (error) {
+      console.log(`${error} - ${JSON.stringify(error)}`);
         next(error);
     }
 });
+
 
 
 router.get('/:episodeID', async (req: Request, res: Response, next: NextFunction) => {
