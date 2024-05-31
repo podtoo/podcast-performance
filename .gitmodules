@@ -1,0 +1,3 @@
+[submodule "server/src/utils/libraries/user-agents-v2"]
+	path = server/src/utils/libraries/user-agents-v2
+	url = https://github.com/opawg/user-agents-v2.git
