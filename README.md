@@ -1,3 +1,5 @@
+**UPDATE 31-May-2024: We will be building additional modules for this that support the `<podcast:events>` tag**
+
 # podcast-performance
 Podcast-Performance is our open source code that allows anyone to host their own `<podcast:performance>` server and get key metrics of their episode data.
 
