@@ -1,6 +1,6 @@
 {
   "name": "server",
-  "version": "1.0.1",
+  "version": "1.0.1a",
   "description": "Podcast-Performance/server is our open source code that allows anyone to host their own `<podcast:performance>` server and get key metrics of their episode data.",
   "main": "index.js",
   "scripts": {
@@ -9,7 +9,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "GPL-3.0-or-later",
   "dependencies": {
     "@types/mongodb": "^4.0.7",
     "@types/node": "^20.12.12",

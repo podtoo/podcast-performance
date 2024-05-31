@@ -24,7 +24,7 @@ const dbType = process.env.DB_TYPE;
 
 if (dbType === 'mongodb') {
   db = require('./db/mongodb');
-  db.connectDB();
+   db.connectDB();
 } else {
   console.error('No valid database type specified');
 }

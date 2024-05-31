@@ -1,4 +1,4 @@
-import { MongoClient, Db, Collection, InsertOneResult, WithId,  } from 'mongodb';
+import { MongoClient, Db, Collection, InsertOneResult, WithId } from 'mongodb';
 
 const client = new MongoClient(process.env.MONGODB_URI as string);
 
@@ -11,43 +11,46 @@ const connectDB = async (): Promise<void> => {
 };
 
 const saveToken = async (data: Record<string, any>): Promise<InsertOneResult<WithId<any>>> => {
+  if (!db) throw new Error('Database not initialized');
   const collection: Collection = db.collection('podcast_performance_token');
   const result = await collection.insertOne(data);
   return result;
 };
 
 const getToken = async (data: Record<string, any>): Promise<WithId<any> | null> => {
+  if (!db) throw new Error('Database not initialized');
   const collection: Collection = db.collection('podcast_performance_token');
   const result = await collection.findOne(data);
   return result;
 };
 
-
 const insertDocument = async (data: Record<string, any>): Promise<InsertOneResult<WithId<any>>> => {
+  if (!db) throw new Error('Database not initialized');
   const collection: Collection = db.collection('episode_performance');
   const result = await collection.insertOne(data);
   return result;
 };
 
 const upsertDocument = async (filter: Record<string, any>, data: Record<string, any>): Promise<any> => {
+  if (!db) throw new Error('Database not initialized');
   const collection: Collection = db.collection('episode_performance');
   const result = await collection.updateOne(filter, { $set: data }, { upsert: true });
   return result;
 };
 
-
 const checkEpisodeGUID = async (data: Record<string, any>): Promise<WithId<any> | null> => {
+  if (!db) throw new Error('Database not initialized');
   const collection: Collection = db.collection(process.env.MONGODB_EPISODE_DB as string);
   const result = await collection.findOne(data);
   return result;
 };
 
-
 const getPerformanceData = async (data: Record<string, any>): Promise<WithId<any> | null> => {
-    const collection: Collection = db.collection('episode_performance');
-    const result = await collection.find(data).toArray();
-    return result;
-  };
+  if (!db) throw new Error('Database not initialized');
+  const collection: Collection = db.collection('episode_performance');
+  const result = await collection.find(data).toArray();
+  return result;
+};
 
 export {
   connectDB,
