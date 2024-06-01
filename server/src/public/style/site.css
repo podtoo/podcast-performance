@@ -59,6 +59,21 @@
     overflow-y: auto;
   }
 
+/* Ensure dropdown menu is visible when it has the show class, scoped to .sidebar */
+.sidebar .nav-item.dropdown.show .dropdown-menu {
+  display: block;
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Optionally, adjust the caret to indicate it is open, scoped to .sidebar */
+.sidebar .nav-item.dropdown.show .dropdown-caret {
+  transform: rotate(180deg);
+}
+
+
+
+
   .content {
     margin-top: 56px;
     margin-left: 250px;

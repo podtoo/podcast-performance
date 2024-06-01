@@ -168,8 +168,45 @@ const generateMenuHTML = (menu: MenuStructure, basePath: string = ''): string =>
   return html;
 };
 
+const generateSideMenuHTML = (menu: MenuStructure, basePath: string = '', currentRoute: string = ''): string => {
+  let html = '<ul class="navbar-nav">';
 
-const generateSubMenuHTML = (menu: MenuStructure, basePath: string): string => {
+  for (const key in menu) {
+    if (key.toLowerCase() === 'index' && menu[key] === null) {
+      continue; // Skip 'Index.md' as a separate item; it will be linked in its parent directory
+    }
+
+    if (menu[key] === null) {
+      if (key.toLowerCase() === 'index.md') {
+        continue; // Skip 'Index.md' as a separate item; it will be linked in its parent directory
+      } else {
+        const route = `${basePath}/${key}`.replace('.md', '').replace(/:/g, '-').toLowerCase();
+        const name = insertSpacesBeforeCapitals(key.replace('.md', '').replace(/-/g, ' ').replace(/:/g, ' '));
+        html += `<li class="nav-item"><a class="nav-link" href="${route}">${name}</a></li>`;
+      }
+    } else {
+      const name = insertSpacesBeforeCapitals(key.replace(/-/g, ' ').replace(/:/g, ' '));
+      const indexRoute = `${basePath}/${key}/index`.replace(/:/g, '-').toLowerCase();
+      const hasIndex = menu[key] && 'Index.md' in (menu[key] ?? {});
+      const isActive = currentRoute.includes(`${basePath}/${key}`.toLowerCase());
+
+      html += `
+      <li class="nav-item dropdown dropdown-li ${isActive ? 'show' : ''}">
+        ${hasIndex ? `<a class="nav-link dropdown-link ${isActive ? 'active' : ''}" href="${indexRoute}">${name}</a>` : `<span class="nav-link dropdown-link ${isActive ? 'active' : ''}">${name}</span>`}
+        <a class="nav-link dropdown-caret dropdown-toggle ${isActive ? 'show' : ''}" href="#" id="${key.replace(/:/g, '-')}-dropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="${isActive}">
+          <b class="caret"></b>
+        </a>
+        ${generateSubMenuHTML(menu[key] as MenuStructure, `${basePath}/${key}`, currentRoute)}
+      </li>`;
+    }
+  }
+
+  html += '</ul>';
+  return html;
+};
+
+
+const generateSubMenuHTML = (menu: MenuStructure, basePath: string, currentRoute: string = ''): string => {
   let html = '<ul class="dropdown-menu">';
 
   for (const key in menu) {
@@ -230,8 +267,7 @@ const generateSidebar = (menuStructure: MenuStructure, currentRoute: string) => 
       const versionMenu = documentationMenu[version];
       
       if (versionMenu && normalizedRoute.includes(`/documentation/${version.toLowerCase()}`)) {
-        //console.log(generateMenuHTML(versionMenu, `/documentation/${version}`));
-        return generateMenuHTML(versionMenu, `/documentation/${version}`);
+        return generateSideMenuHTML(versionMenu, `/documentation/${version}`, normalizedRoute);
       }
       return '';
     }).join('');
@@ -249,7 +285,7 @@ const generateSidebar = (menuStructure: MenuStructure, currentRoute: string) => 
 const customScript = `
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('.dropdown').forEach(function(element) {
+  document.querySelectorAll('.navbar-nav .nav-item.dropdown').forEach(function(element) {
     element.addEventListener('mouseover', function() {
       this.classList.add('show');
       this.querySelector('.dropdown-menu').classList.add('show');
@@ -260,7 +296,50 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  document.querySelectorAll('.dropdown-submenu a.dropdown-toggle').forEach(function(element) {
+  // Handle dropdown toggle on click
+  const sidebarDropdowns = document.querySelectorAll('.sidebar .nav-item.dropdown');
+
+  sidebarDropdowns.forEach(dropdown => {
+    const caret = dropdown.querySelector('.dropdown-toggle');
+    const menu = dropdown.querySelector('.dropdown-menu');
+    
+    if (caret) {
+      caret.addEventListener('click', (e) => {
+        e.preventDefault();
+
+        // Close all other dropdowns
+        sidebarDropdowns.forEach(dd => {
+          if (dd !== dropdown) {
+            dd.classList.remove('show');
+            dd.querySelector('.dropdown-menu').classList.remove('show');
+            dd.querySelector('.dropdown-toggle').classList.remove('show');
+          }
+        });
+
+        // Toggle the current dropdown
+        dropdown.classList.toggle('show');
+        caret.classList.toggle('show');
+        menu.classList.toggle('show');
+      });
+    }
+  });
+
+  // Prevent closing dropdown when mouse leaves
+  sidebarDropdowns.forEach(dropdown => {
+    dropdown.addEventListener('mouseenter', () => {
+      dropdown.classList.add('show');
+      dropdown.querySelector('.dropdown-menu').classList.add('show');
+      dropdown.querySelector('.dropdown-toggle').classList.add('show');
+    });
+
+    dropdown.addEventListener('mouseleave', () => {
+      dropdown.classList.add('show');
+      dropdown.querySelector('.dropdown-menu').classList.add('show');
+      dropdown.querySelector('.dropdown-toggle').classList.add('show');
+    });
+  });
+
+  document.querySelectorAll('.navbar-nav .dropdown-submenu a.dropdown-toggle').forEach(function(element) {
     element.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
@@ -270,6 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+
 </script>
 `;
 
