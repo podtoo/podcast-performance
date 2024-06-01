@@ -64,6 +64,19 @@
     margin-left: 250px;
     padding: 15px;
   }
+
+  .no-ml{
+    margin-left: 0px;
+  }
+  .no-mr{
+    margin-right: 0px;
+  }
+  .no-mt{
+    margin-top: 0px;
+  }
+  .no-mb{
+    margin-bottom: 0px;
+  }
   @media (max-width: 991.98px) { /* Bootstrap lg breakpoint */
     .content {
       margin-left: 0;

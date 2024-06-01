@@ -377,7 +377,7 @@ const generateRoutes = (dir: string) => {
             </div>
           </div>
         </nav>
-        <div class="content">
+        <div class="content no-ml">
             ${coreHTML[0].subheader.replace('{{currentVersion}}', currentVersion)}
             ${coreHTML[0].headerTwo}
             ${coreHTML[0].subheadertwo}
