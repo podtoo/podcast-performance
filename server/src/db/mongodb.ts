@@ -40,9 +40,18 @@ const upsertDocument = async (filter: Record<string, any>, data: Record<string, 
 
 const checkEpisodeGUID = async (data: Record<string, any>): Promise<WithId<any> | null> => {
   if (!db) throw new Error('Database not initialized');
-  const collection: Collection = db.collection(process.env.MONGODB_EPISODE_DB as string);
-  const result = await collection.findOne(data);
-  return result;
+
+  const collections = (process.env.MONGODB_EPISODE_DB as string).split(',');
+
+  for (const collectionName of collections) {
+    const collection: Collection = db.collection(collectionName.trim());
+    const result = await collection.findOne(data);
+    if (result) {
+      return result; // Return the result if found in any collection
+    }
+  }
+
+  return null; // Return null if not found in any collection
 };
 
 const getPerformanceData = async (data: Record<string, any>): Promise<WithId<any> | null> => {

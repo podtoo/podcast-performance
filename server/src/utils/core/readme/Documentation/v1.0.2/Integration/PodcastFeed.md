@@ -59,6 +59,9 @@ Depending on how you have generated your RSS feed, it may be a little different,
 
     // Add this to your FEED Code
     `<podcast:performance url="https://SERVER DOMAIN OR IP ADDRESS/episodeperformance/${s}" tokenExpires="${exp}" duration="${d}"></podcast:performance>`;
+
+    // Add this allows communication for polls, ratings and more
+    `<podcast:events url="https://SERVER DOMAIN OR IP ADDRESS/inbox"></podcast:events>`;
       
   </code></pre></div>
   </li>
@@ -120,12 +123,15 @@ $s = $decodedArray['s'];
 $d = $decodedArray['d'];
 $exp = $decodedArray['exp'];
 
-// Add this to your FEED Code
+// Add the following to your FEED Code
 $performanceTag = "<podcast:performance url=\"https://SERVER_DOMAIN_OR_IP_ADDRESS/episodeperformance/{$s}\" tokenExpires=\"{$exp}\" duration=\"{$d}\"></podcast:performance>";
+// Add this to your FEED Code
+$eventsTag = "<podcast:events url=\"https://SERVER_DOMAIN_OR_IP_ADDRESS/indbox\"></podcast:events>";
 
 // Assuming you have a way to insert this into your feed
 // echo or save $performanceTag to your RSS feed generator
 echo $performanceTag;
+echo $eventsTag;
 ?>
   </code></pre>
   </div>

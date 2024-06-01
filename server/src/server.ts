@@ -6,7 +6,9 @@ import path from 'path';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { marked } from 'marked';
+import getChartDataRouter from './routes/getChartDataRouter';
 import playDataRouter from './routes/playDataRouter';
+import inboxFedDataRouter from './routes/fedvers/inboxFedDataRouter';
 
 dotenv.config();
 
@@ -24,9 +26,17 @@ const dbType = process.env.DB_TYPE;
 
 if (dbType === 'mongodb') {
   db = require('./db/mongodb');
-   db.connectDB();
+  db.connectDB()
+    .then(() => {
+      startServer();
+    })
+    .catch((error: any) => {
+      console.error('Failed to connect to MongoDB', error);
+      process.exit(1);
+    });
 } else {
   console.error('No valid database type specified');
+  process.exit(1);
 }
 
 // Read the current version from package.json
@@ -45,9 +55,7 @@ try {
   process.exit(1);
 }
 
-// Middleware to hash IP addresses - This has been left in the hopes that if someone does record peoples IP address that at least they will be hashed.
-// Please note this server by default removes all headers and only uses user-agent, you will need to modify the code if you want IP addresses.
-// PLEASE DON'T STORE IP ADDRESSES.
+// Middleware to hash IP addresses
 app.use((req, res, next) => {
   const userAgent = req.headers['user-agent'] || '';
   if (req.headers['x-real-ip']) {
@@ -75,35 +83,6 @@ const generateUUID = () => {
 app.use((req, res, next) => {
   req.db = db;
   next();
-});
-
-
-// Use the playDataRouter for /episodeperformance endpoint
-app.use('/episodeperformance', playDataRouter);
-
-app.get('/token', (req, res) => {
-  const payload = {
-    s: generateUUID(),
-    d: process.env.EXPIRES_IN
-  };
-
-  const secretKey = process.env.PERFORMANCE_SECRET_KEY;
-  if (!secretKey) {
-    return res.status(500).json({ error: 'Secret key not configured' });
-  }
-
-  let expiresIn = req.query.expiresIn as string || process.env.EXPIRES_IN as string;
-  if (!expiresIn.endsWith('h')) {
-    expiresIn += 'h';
-  }
-
-  const token = jwt.sign(payload, secretKey, { expiresIn });
-  let decodedToken;
-  decodedToken = jwt.verify(token, secretKey);
-  req.db.saveToken(decodedToken);
-  
-
-  res.json({ token });
 });
 
 // Helper function to recursively list all Markdown files in a directory and its subdirectories
@@ -135,12 +114,175 @@ const insertSpacesBeforeCapitals = (str: string) => {
 // Generate dynamic routes for each Markdown file
 let markdownRoutes: string[] = [];
 
+const buildMenuStructure = (paths: string[]): MenuStructure => {
+  const menu: MenuStructure = {};
+
+  paths.forEach(path => {
+    const parts = path.split('/');
+    let currentLevel: MenuStructure = menu;
+  
+    parts.forEach((part, index) => {
+      if (!currentLevel[part]) {
+        currentLevel[part] = index === parts.length - 1 ? null : {};
+      }
+      currentLevel = currentLevel[part] as MenuStructure;
+    });
+  });
+
+  return menu;
+};
+
+const generateMenuHTML = (menu: MenuStructure, basePath: string = ''): string => {
+  let html = '<ul class="navbar-nav">';
+
+  for (const key in menu) {
+    if (key.toLowerCase() === 'index' && menu[key] === null) {
+      continue; // Skip 'Index.md' as a separate item; it will be linked in its parent directory
+    }
+
+    if (menu[key] === null) {
+      if (key.toLowerCase() === 'index.md') {
+        continue; // Skip 'Index.md' as a separate item; it will be linked in its parent directory
+      } else {
+        const route = `${basePath}/${key}`.replace('.md', '').replace(/:/g, '-').toLowerCase();
+        const name = insertSpacesBeforeCapitals(key.replace('.md', '').replace(/-/g, ' ').replace(/:/g, ' '));
+        html += `<li class="nav-item"><a class="nav-link" href="${route}">${name}</a></li>`;
+      }
+    } else {
+      const name = insertSpacesBeforeCapitals(key.replace(/-/g, ' ').replace(/:/g, ' '));
+      const indexRoute = `${basePath}/${key}/index`.replace(/:/g, '-').toLowerCase();
+      const hasIndex = menu[key] && 'Index.md' in (menu[key] ?? {});
+
+      html += `
+      <li class="nav-item dropdown dropdown-li">
+        ${hasIndex ? `<a class="nav-link dropdown-link" href="${indexRoute}">${name}</a>` : `<span class="nav-link dropdown-link">${name}</span>`}
+        <a class="nav-link dropdown-caret dropdown-toggle" href="#" id="${key.replace(/:/g, '-')}-dropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+          <b class="caret"></b>
+        </a>
+        ${generateSubMenuHTML(menu[key] as MenuStructure, `${basePath}/${key}`)}
+      </li>`;
+    }
+  }
+
+  html += '</ul>';
+  return html;
+};
+
+
+const generateSubMenuHTML = (menu: MenuStructure, basePath: string): string => {
+  let html = '<ul class="dropdown-menu">';
+
+  for (const key in menu) {
+    if (menu[key] === null) {
+      if (key.toLowerCase() === 'index.md') {
+        continue; // Skip 'Index.md' as a separate item; it will be linked in its parent directory
+      } else {
+        const route = `${basePath}/${key}`.replace('.md', '').replace(/:/g, '-').toLowerCase();
+        const name = insertSpacesBeforeCapitals(key.replace('.md', '').replace(/-/g, ' '));
+        html += `<li><a class="dropdown-item" href="${route}">${name}</a></li>`;
+      }
+    } else {
+      const name = insertSpacesBeforeCapitals(key.replace(/-/g, ' ').replace(/:/g, ' '));
+      const indexRoute = menu[key] && 'Index.md' in (menu[key] ?? {}) ? `${basePath}/${key}/index`.replace(/:/g, '-').toLowerCase() : '';
+      const indexLink = indexRoute ? `<a class="dropdown-item" href="${indexRoute}">${name}</a>` : name;
+
+      html += `
+        <li class="dropdown-submenu">
+          ${indexRoute ? `<a class="dropdown-item dropdown-toggle" href="${indexRoute}">${name}</a>` : `<span class="dropdown-item dropdown-toggle">${name}</span>`}
+          ${generateSubMenuHTML(menu[key] as MenuStructure, `${basePath}/${key}`)}
+        </li>`;
+    }
+  }
+
+  html += '</ul>';
+  return html;
+};
+
+
+const generateSidebar = (menuStructure: MenuStructure, currentRoute: string) => {
+  const documentationMenu = menuStructure['Documentation']!;
+  const versionKeys = Object.keys(documentationMenu).filter(key => key.startsWith('v'));
+
+  // Normalize currentRoute to lowercase for comparison
+  const normalizedRoute = currentRoute.toLowerCase();
+  
+  // Find the current version by comparing lowercase paths
+  const currentVersion = versionKeys.find(version => normalizedRoute.includes(`/documentation/${version.toLowerCase()}`)) || 'Select Version';
+
+  const versionDropdown = `
+    <div class="dropdown">
+      <button class="btn btn-secondary dropdown-toggle" type="button" id="versionDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+        ${currentVersion}
+      </button>
+      <ul class="dropdown-menu" aria-labelledby="versionDropdown">
+        ${versionKeys.map(version => `
+          <li><a class="dropdown-item" href="/documentation/${version}/Index">${version}</a></li>
+        `).join('')}
+      </ul>
+    </div>
+  `;
+
+  console.log(`The current Route is ${currentRoute} and version is ${JSON.stringify(versionKeys)}`);
+  console.log(`Normalized Route is ${normalizedRoute} and current version is ${currentVersion}`);
+
+  const versionPages = versionKeys
+    .map(version => {
+      const versionMenu = documentationMenu[version];
+      
+      if (versionMenu && normalizedRoute.includes(`/documentation/${version.toLowerCase()}`)) {
+        //console.log(generateMenuHTML(versionMenu, `/documentation/${version}`));
+        return generateMenuHTML(versionMenu, `/documentation/${version}`);
+      }
+      return '';
+    }).join('');
+
+  return `
+    ${versionDropdown}
+    <div class="mt-4">
+      ${versionPages}
+    </div>
+  `;
+};
+
+
+
+const customScript = `
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.dropdown').forEach(function(element) {
+    element.addEventListener('mouseover', function() {
+      this.classList.add('show');
+      this.querySelector('.dropdown-menu').classList.add('show');
+    });
+    element.addEventListener('mouseout', function() {
+      this.classList.remove('show');
+      this.querySelector('.dropdown-menu').classList.remove('show');
+    });
+  });
+
+  document.querySelectorAll('.dropdown-submenu a.dropdown-toggle').forEach(function(element) {
+    element.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var submenu = this.nextElementSibling;
+      submenu.classList.toggle('show');
+      submenu.style.display = submenu.classList.contains('show') ? 'block' : 'none';
+    });
+  });
+});
+</script>
+`;
+
 const generateRoutes = (dir: string) => {
   const fileMap = listMarkdownFiles(dir, dir);
   markdownRoutes = Array.from(fileMap.keys());
 
+  const menuStructure = buildMenuStructure(markdownRoutes);
+  const links = generateMenuHTML(menuStructure);
+
   markdownRoutes.forEach(file => {
-    const route = `/${file.replace('.md', '')}`;
+    // Replace ':' with '-' for route compatibility
+    const route = `/${file.replace('.md', '').replace(/:/g, '-')}`;
     app.get(route, (req, res) => {
       const filePath = fileMap.get(file);
       if (!filePath) {
@@ -154,26 +296,47 @@ const generateRoutes = (dir: string) => {
           return;
         }
 
-        const { title, style, coreHTML } = landingPage; // Assuming you want to use the same style
-       
+        const { title, style, coreHTML } = landingPage;
+
         let htmlContent = marked(data);
 
+        const sidebar = generateSidebar(menuStructure, route);
+
         const htmlResponse = `
-          <html>
+          <html lang="en">
           <head>
             <title>${title}</title>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+            <link rel="stylesheet" type="text/css" href="/style/site.css">
             <link rel="stylesheet" type="text/css" href="${style}">
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css" />
             <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-javascript.min.js"></script>
             <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-php.min.js"></script>
+            
           </head>
           <body>
-            ${coreHTML[0].header}
-            ${coreHTML[0].subheader.replace('{{currentVersion}}', currentVersion)}
-            <div class="gBody">
+            <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+              <div class="container">
+                <a class="navbar-brand" href="#">${coreHTML[0].header}</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+                  <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNavDropdown">
+                  ${links}
+                </div>
+              </div>
+            </nav>
+            <div class="sidebar bg-dark d-none d-lg-block">
+              ${sidebar}
+            </div>
+            <div class="content">
               ${htmlContent}
             </div>
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+            ${customScript}
           </body>
           </html>
         `;
@@ -182,87 +345,107 @@ const generateRoutes = (dir: string) => {
       });
     });
   });
+
+  // Set up the welcome page route after generating the menu
+  app.get('/', (req, res) => {
+    try {
+      const { title, style, coreHTML } = landingPage;
+
+      const htmlContent = `
+      <html lang="en">
+      <head>
+        <title>${title}</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+        <link rel="stylesheet" type="text/css" href="/style/site.css">
+        <link rel="stylesheet" type="text/css" href="${style}">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-javascript.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-php.min.js"></script>
+      </head>
+      <body>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+          <div class="container">
+            <a class="navbar-brand" href="#">${coreHTML[0].header}</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNavDropdown">
+              ${links}
+            </div>
+          </div>
+        </nav>
+        <div class="container content mt-4">
+            ${coreHTML[0].subheader.replace('{{currentVersion}}', currentVersion)}
+            ${coreHTML[0].headerTwo}
+            ${coreHTML[0].subheadertwo}
+          </div>
+        </body>
+        </div>
+        </body>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+        ${customScript}
+        </html>
+      `;
+
+      res.send(htmlContent);
+    } catch (error) {
+      res.status(500).send('Error generating landing page content');
+    }
+  });
 };
 
 // Generate routes from the markdown directory
 const markdownDir = path.join(__dirname, 'utils', 'core', 'readme');
 generateRoutes(markdownDir);
 
-const buildMenuStructure = (paths: string[]): MenuStructure => {
-  const menu: MenuStructure = {};
+// THIS IS CORE CODE
 
-  paths.forEach(path => {
-    const parts = path.split('/');
-    let currentLevel: MenuStructure = menu;
+// Use the playDataRouter for /episodeperformance endpoint
+app.use('/episodeperformance', playDataRouter);
 
-    parts.forEach((part, index) => {
-      if (!currentLevel[part]) {
-        currentLevel[part] = index === parts.length - 1 ? null : {};
-      }
-      currentLevel = currentLevel[part] as MenuStructure;
-    });
-  });
+// Use the playDataRouter for /episodeperformance endpoint
+app.use('/inbox', inboxFedDataRouter);
 
-  return menu;
-};
-
-const generateMenuHTML = (menu: MenuStructure, basePath: string = ''): string => {
-  let html = '<ul>';
-
-  for (const key in menu) {
-    if (key.toLowerCase() === 'index' && menu[key] === null) {
-      continue; // Skip 'Index.md' as a separate item; it will be linked in its parent directory
-    }
-
-    if (menu[key] === null) {
-      console.log(key);
-      if (key.toLowerCase() === 'index.md') {
-        continue; // Skip 'Index.md' as a separate item; it will be linked in its parent directory
-      }
-      else{
-      const route = `${basePath}/${key}`.replace('.md', '').toLowerCase();
-      const name = insertSpacesBeforeCapitals(key.replace('.md', '').replace(/-/g, ' '));
-      html += `<li><a href="${route}">${name}</a></li>`;
-      }
-    } else {
-      const name = insertSpacesBeforeCapitals(key.replace(/-/g, ' '));
-      const indexRoute = menu[key] && 'Index.md' in (menu[key] ?? {}) ? `${basePath}/${key}/index`.toLowerCase() : '';
-      const indexLink = indexRoute ? `<a href="${indexRoute}">${name}</a>` : name;
-      html += `<li>${indexLink}${generateMenuHTML(menu[key] as MenuStructure, `${basePath}/${key}`)}</li>`;
-    }
+app.get('/token', async (req, res) => {
+  const secretKey = process.env.PERFORMANCE_SECRET_KEY;
+  if (!secretKey) {
+    return res.status(500).json({ error: 'Secret key not configured' });
   }
 
-  html += '</ul>';
-  return html;
-};
+  const payload: any = {
+    s: generateUUID(),
+    d: process.env.EXPIRES_IN
+  };
 
-const menuStructure = buildMenuStructure(markdownRoutes);
+  const publicKey = req.headers['public_key'];
+  let expiresIn = req.query.expiresIn as string || process.env.EXPIRES_IN as string;
 
-// Welcome page route
-app.get('/', (req, res) => {
+  if (publicKey) {
+    if (typeof publicKey !== 'string') {
+      return res.status(400).json({ error: 'Invalid public key' });
+    }
+
+    payload.a = true;
+    expiresIn = process.env.EXPIRES_IN as string;
+  }
+
+  if (!expiresIn.endsWith('h')) {
+    expiresIn += 'h';
+  }
+
   try {
-    const { title, style, coreHTML } = landingPage;
-    const links = generateMenuHTML(menuStructure);
+    const token = jwt.sign(payload, secretKey, { expiresIn });
+    const decodedToken = jwt.verify(token, secretKey);
+    
+    await req.db.saveToken(decodedToken);
 
-    const htmlContent = `
-      <html>
-      <head>
-        <title>${title}</title>
-        <link rel="stylesheet" type="text/css" href="${style}">
-      </head>
-      <body>
-        ${coreHTML[0].header}
-        ${coreHTML[0].subheader.replace('{{currentVersion}}', currentVersion)}
-        ${coreHTML[0].headerTwo}
-        ${coreHTML[0].subheadertwo}
-        ${links}
-      </body>
-      </html>
-    `;
-
-    res.send(htmlContent);
-  } catch (error) {
-    res.status(500).send('Error generating landing page content');
+    res.json({ token });
+  } catch (err) {
+    console.error('Error generating token:', err);
+    res.status(500).json({ error: 'Error generating token' });
   }
 });
 
@@ -275,7 +458,9 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
   }
 });
 
-const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+const startServer = () => {
+  const PORT = process.env.PORT || 7000;
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+};

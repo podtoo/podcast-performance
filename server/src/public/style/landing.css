@@ -1,12 +1,7 @@
 body {
     background-color: #121b38;
     color: white;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    margin: 0;
-  }
+}
   a {
     color:#FFF;
   }
@@ -27,11 +22,16 @@ body {
     text-align: left;
   }
 
-  .codeCSS{
+  pre {
+    background-color: #F5F2F0 !important;
+  }
+  
+  .codeCSS, .language-javascript{
     overflow: scroll;
     white-space: 'pre-wrap'; 
     word-wrap: 'break-word';
     background:#F5F2F0 !important;
+    color:#000;
   }
   .codeCSS a{
     color:#000 !important;
