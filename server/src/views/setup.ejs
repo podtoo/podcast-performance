@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= settingsPage.title %></title>
+    <link rel="stylesheet" href="<%= settingsPage.style %>">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <style>
+        .custom-dropdown {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        .dropdown-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            font-size: 16px;
+        }
+        .dropdown-menu {
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        /* Custom CSS for Bootstrap switches based on data-onstyle attribute */
+        .form-check-input[data-onstyle="success"]:checked {
+            background-color: green;
+            border-color: green;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Setup Server</a>
+            <div class="ml-auto">
+                <a class="navbar-brand" href="#">
+                    <%- settingsPage.coreHTML[0].header %>
+                </a>
+            </div>
+        </div>
+    </nav>
+    <div class="container">
+        <form id="dynamicForm" action="/setup" method="post" class="row">
+            <% settingsPage.coreHTML[0].form.forEach(function(element) { %>
+                <% if (element.show) { %>
+                    <div class="form-group col-md-<%= element.size %> mt-3" data-conditional="<%= element.conditional ? JSON.stringify(element.conditional) : '' %>">
+                        <% if (element.type !== 'submit' && element.type !== 'toggle' && element.type !== 'dropdown' && element.type !== 'dropdown-search') { %>
+                            <label style="font-weight: bold;"><%= element.label %></label>
+                        <% } %>
+                        <% if (element.type === 'textbox') { %>
+                            <input type="text" class="form-control" name="<%= element.name %>" id="<%= element.name %>" placeholder="<%= element.defaultText %>">
+                            <% if (element.label === 'Domain') { %>
+                                <div class="invalid-feedback">Domain name should not start with http:// or https://</div>
+                            <% } %>
+                        <% } else if (element.type === 'password') { %>
+                            <input type="password" class="form-control" placeholder="<%= element.defaultText %>" name="<%= element.name %>">
+                        <% } else if (element.type === 'email') { %>
+                            <input type="email" class="form-control" placeholder="<%= element.defaultText %>" name="<%= element.name %>">
+                        <% } else if (element.type === 'textarea') { %>
+                            <textarea class="form-control" name="<%= element.name %>" placeholder="<%= element.defaultText %>"></textarea>
+                        <% } else if (element.type === 'toggle') { %>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" name="<%= element.name %>" type="checkbox" data-onstyle="<%= element.data_onstyle %>" id="<%= element.label.replace(' ', '') %>"  <%= element.default ? 'checked' : '' %> <%= element.conditional ? 'data-conditional-field="' + element.conditional.field + '" data-conditional-value="' + element.conditional.value + '"' : '' %>>
+                                <label class="form-check-label" for="<%= element.label.replace(' ', '') %>"><%= element.label %></label>
+                            </div>
+                        <% } else if (element.type === 'dropdown') { %>
+                            <label style="font-weight: bold;"><%= element.label %></label>
+                            <select class="form-control" name="<%= element.name %>" id="<%= element.name %>">
+                                <% element.options.forEach(function(option) { %>
+                                    <option value="<%= option.value %>"><%= option.name %></option>
+                                <% }) %>
+                            </select>
+                        <% } else if (element.type === 'dropdown-search') { %>
+                            <label style="font-weight: bold;"><%= element.label %></label>
+                            <div class="dropdown custom-dropdown">
+                                <input type="text" class="form-control dropdown-input" id="<%= element.label.replace(' ', '') %>Input" placeholder="Search...">
+                                <ul class="dropdown-menu" id="<%= element.label.replace(' ', '') %>List">
+                                    <% if (element.options === "timezones") { %>
+                                        <% timezones.forEach(function(option) { %>
+                                            <li><div class="dropdown-item" data-value="<%= option.value %>"><%= option.name %></div></li>
+                                        <% }) %>
+                                    <% } %>
+                                </ul>
+                            </div>
+                            <input type="hidden"  name="<%= element.name %>" id="<%= element.label.replace(' ', '') %>">
+                        <% } else if (element.type === 'submit') { %>
+                            <button type="submit" class="btn btn-primary w-100" id="submitButton"><%= element.label %></button>
+                        <% } %>
+                    </div>
+                <% } %>
+            <% }) %>
+        </form>        
+    </div>
+    <footer class="bg-dark text-white mt-5 p-4">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-3 text-start">
+                    Podcast Performance - v<%- settingsPage.version %>
+                </div>
+                <div class="col-md-9 text-end">
+                    <p>&copy; 2024 PodToo. This software is licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.en.html" class="text-white">GNU General Public License v3.0</a>.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <script>
+       document.addEventListener('DOMContentLoaded', function() {
+            // Initialize searchable dropdowns
+            document.querySelectorAll('.dropdown-input').forEach(function(input) {
+                const dropdownMenu = input.nextElementSibling;
+                const hiddenInput = document.getElementById(input.id.replace('Input', ''));
+                let currentIndex = -1;
+                input.addEventListener('input', function() {
+                const filter = input.value.toLowerCase();
+                const options = dropdownMenu.querySelectorAll('.dropdown-item');
+                let hasVisibleOptions = false;
+                options.forEach((option, index) => {
+                    if (option.textContent.toLowerCase().includes(filter)) {
+                        option.style.display = '';
+                        hasVisibleOptions = true;
+                    } else {
+                        option.style.display = 'none';
+                    }
+                    option.classList.remove('active'); // Remove active class when filtering
+                });
+                dropdownMenu.style.display = hasVisibleOptions ? 'block' : 'none';
+                currentIndex = -1;
+            });
+
+            input.addEventListener('keydown', function(e) {
+                const options = Array.from(dropdownMenu.querySelectorAll('.dropdown-item')).filter(option => option.style.display !== 'none');
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (currentIndex < options.length - 1) {
+                        if (currentIndex >= 0) {
+                            options[currentIndex].classList.remove('active');
+                        }
+                        currentIndex++;
+                        options[currentIndex].classList.add('active');
+                        options[currentIndex].scrollIntoView({ block: 'nearest' });
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (currentIndex > 0) {
+                        options[currentIndex].classList.remove('active');
+                        currentIndex--;
+                        options[currentIndex].classList.add('active');
+                        options[currentIndex].scrollIntoView({ block: 'nearest' });
+                    }
+                } else if (e.key === 'Enter' && currentIndex >= 0) {
+                    e.preventDefault();
+                    options[currentIndex].click();
+                }
+            });
+
+            dropdownMenu.addEventListener('click', function(e) {
+                if (e.target.classList.contains('dropdown-item')) {
+                    input.value = e.target.textContent;
+                    hiddenInput.value = e.target.getAttribute('data-value');
+                    dropdownMenu.style.display = 'none';
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!dropdownMenu.contains(e.target) && e.target !== input) {
+                    dropdownMenu.style.display = 'none';
+                }
+            });
+
+            input.addEventListener('focus', function() {
+                const options = dropdownMenu.querySelectorAll('.dropdown-item');
+                let hasVisibleOptions = false;
+                options.forEach(function(option) {
+                    if (option.style.display !== 'none') {
+                        hasVisibleOptions = true;
+                    }
+                });
+                dropdownMenu.style.display = hasVisibleOptions ? 'block' : 'none';
+            });
+        });
+
+            const smtpSelect = document.getElementById('smtp');
+            const formGroups = document.querySelectorAll('#dynamicForm .form-group');
+            const domainInput = document.getElementById('domain');
+            const submitButton = document.getElementById('submitButton');
+
+            function handleConditionalFields() {
+                const smtpValue = smtpSelect.value;
+                formGroups.forEach(group => {
+                    const condition = group.getAttribute('data-conditional');
+                    if (condition) {
+                        const parsedCondition = JSON.parse(condition);
+                        if (parsedCondition.field.toLowerCase() === 'smtp') {
+                            if (parsedCondition.value === smtpValue) {
+                                group.style.display = 'block';
+                            } else {
+                                group.style.display = 'none';
+                            }
+                        }
+                    }
+                });
+            }
+
+            function validateDomain() {
+                const value = domainInput.value.trim();
+                if (value.startsWith('http://') || value.startsWith('https://')) {
+                    domainInput.classList.add('is-invalid');
+                    submitButton.disabled = true;
+                } else {
+                    domainInput.classList.remove('is-invalid');
+                    submitButton.disabled = false;
+                }
+            }
+
+            function handleToggleConditions() {
+                const outboundToggle = document.getElementById('SendOutbound');
+                const remoteItemToggle = document.getElementById('ForwardremoteItem');
+
+                outboundToggle.addEventListener('change', function() {
+                    if (outboundToggle.checked) {
+                        remoteItemToggle.disabled = false;
+                    } else {
+                        remoteItemToggle.disabled = true;
+                        remoteItemToggle.checked = false;
+                    }
+                });
+
+                // Initial check
+                if (!outboundToggle.checked) {
+                    remoteItemToggle.disabled = true;
+                }
+            }
+
+            smtpSelect.addEventListener('change', handleConditionalFields);
+            handleConditionalFields(); // Initial call to set visibility based on the current value
+
+            domainInput.addEventListener('input', validateDomain);
+            validateDomain(); // Initial call to validate the current input
+
+            handleToggleConditions(); // Initial call to set toggle conditions
+        });
+
+   </script>
+</body>
+</html>

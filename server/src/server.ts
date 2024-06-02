@@ -6,6 +6,8 @@ import path from 'path';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { marked } from 'marked';
+import { InsertOneResult, ObjectId, WithId } from 'mongodb';
+import { hashPassword } from './utils/core/app/cryptoUtils';
 import getChartDataRouter from './routes/getChartDataRouter';
 import playDataRouter from './routes/playDataRouter';
 import inboxFedDataRouter from './routes/fedvers/inboxFedDataRouter';
@@ -19,7 +21,11 @@ type MenuStructure = {
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+let isSetupDone = false;
 
 let db: any;
 const dbType = process.env.DB_TYPE;
@@ -44,6 +50,17 @@ const packageJsonPath = path.join(__dirname, '../package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 const currentVersion = packageJson.version;
 
+// Load Timezones
+const timezonePath = path.join(__dirname, 'utils', 'core', 'json', 'timezones.json');
+let timezones: any;
+try {
+  const timezoneData = fs.readFileSync(timezonePath, 'utf8');
+  timezones = JSON.parse(timezoneData);
+} catch (error) {
+  console.error('Error reading or parsing timezone content', error);
+  process.exit(1);
+}
+
 // Load landing page content once at server start
 const landingPagePath = path.join(__dirname, 'utils', 'core', 'json', 'landing.json');
 let landingPage: any;
@@ -52,6 +69,17 @@ try {
   landingPage = JSON.parse(landingPageData);
 } catch (error) {
   console.error('Error reading or parsing landing page content', error);
+  process.exit(1);
+}
+
+// Load settings page content once at server start
+const settingsPagePath = path.join(__dirname, 'utils', 'core', 'json', 'setup.json');
+let settingsPage: any;
+try {
+  const settingsPageData = fs.readFileSync(settingsPagePath, 'utf8');
+  settingsPage = JSON.parse(settingsPageData);
+} catch (error) {
+  console.error('Error reading or parsing settings page content', error);
   process.exit(1);
 }
 
@@ -363,7 +391,7 @@ const generateRoutes = (dir: string) => {
   markdownRoutes.forEach(file => {
     // Replace ':' with '-' for route compatibility
     const route = `/${file.replace('.md', '').replace(/:/g, '-')}`;
-    app.get(route, (req, res) => {
+    app.get(route, db.performanceSettingsMiddleware, (req, res) => {
       const filePath = fileMap.get(file);
       if (!filePath) {
         res.status(404).send('File not found');
@@ -427,7 +455,8 @@ const generateRoutes = (dir: string) => {
   });
 
   // Set up the welcome page route after generating the menu
-  app.get('/', (req, res) => {
+  app.get('/', db.performanceSettingsMiddleware,  (req, res) => {
+    isSetupDone = true;
     try {
       const { title, style, coreHTML } = landingPage;
 
@@ -475,13 +504,95 @@ const generateRoutes = (dir: string) => {
       res.status(500).send('Error generating landing page content');
     }
   });
+  
+  app.get('/setup', (req, res) => {
+    if (isSetupDone) {
+      return res.status(403).json({ error: 'Setup has already been completed.' });
+    }
+    // Replace the version placeholder
+    res.render('setup', { settingsPage, timezones });
+  });
+
+
 };
 
 // Generate routes from the markdown directory
 const markdownDir = path.join(__dirname, 'utils', 'core', 'readme');
 generateRoutes(markdownDir);
 
+
 // THIS IS CORE CODE
+app.post('/setup', async (req, res) => {
+  if (isSetupDone) {
+    return res.status(403).json({ error: 'Setup has already been completed.' });
+  }
+
+  const { username, password, name, email, ...settings } = req.body;
+
+  try {
+    // Hash the password using crypto
+    const { salt, hash } = await hashPassword(password);
+
+    const user = {
+      username,
+      password: hash,
+      name,
+      email,
+      type: 'admin'
+    };
+
+    // Insert user data
+    const userResult: InsertOneResult<WithId<any>> = await req.db.createUser(user);
+    
+    // Insert the salt with the user's ID into a separate collection
+    await req.db.insertUserSalt({ 'user': new ObjectId(userResult.insertedId), salt });
+
+
+    // Insert settings data
+    await req.db.settingsInsertDocument(settings);
+
+    // Mark setup as done
+    isSetupDone = true;
+
+    // Send a success message with a redirect script
+    res.send(`
+      <html>
+        <body>
+          <h1>Setup completed successfully.</h1>
+          <p>You will be redirected to the main page in 5 seconds...</p>
+          <script>
+            setTimeout(function() {
+              window.location.href = '/';
+            }, 5000);
+          </script>
+        </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Error during setup:', error);
+    res.status(500).json({ error: 'An error occurred during setup.' });
+  }
+});
+
+const replaceVersion = (obj: any, version: string): any => {
+  if (typeof obj === 'string') {
+      return obj.replace('{{currentVersion}}', version);
+  } else if (Array.isArray(obj)) {
+      obj.forEach((item, index) => {
+          obj[index] = replaceVersion(item, version);
+      });
+  } else if (typeof obj === 'object' && obj !== null) {
+      for (const key in obj) {
+          if (obj.hasOwnProperty(key)) {
+              obj[key] = replaceVersion(obj[key], version);
+          }
+      }
+  }
+  return obj;
+};
+replaceVersion(settingsPage, currentVersion);
+replaceVersion(landingPage, currentVersion);
+
 
 // Use the playDataRouter for /episodeperformance endpoint
 app.use('/episodeperformance', playDataRouter);
