@@ -1,16 +1,24 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
+import bodyParser from 'body-parser'; 
 import cors from 'cors';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { createServer } from 'node:http';
+import setupWebSocketServer from './utils/core/app/wsHandler'; // Import the WebSocket handler
 import jwt from 'jsonwebtoken';
 import { marked } from 'marked';
 import { InsertOneResult, ObjectId, WithId } from 'mongodb';
 import { hashPassword } from './utils/core/app/cryptoUtils';
 import getChartDataRouter from './routes/getChartDataRouter';
 import playDataRouter from './routes/playDataRouter';
+import apiRouter from './routes/api/main';
+import userRoute from './routes/users/main';
+import userPathRoute from './routes/users/userPath';
 import inboxFedDataRouter from './routes/fedvers/inboxFedDataRouter';
+import wellknown from './routes/fedvers/well-known/main';
+import nodeinfo from './routes/fedvers/nodeinfo/main';
 
 dotenv.config();
 
@@ -18,13 +26,43 @@ type MenuStructure = {
   [key: string]: MenuStructure | null;
 };
 
+interface AuthRequest extends Request {
+  user?: any; // You can specify the exact type of your user object if known
+}
+
 const app = express();
 app.use(cors());
-app.use(express.json());
+//app.use(express.json());
+// Use body-parser middleware
+//app.use(bodyParser.json());  // Use body-parser to parse JSON bodies
+// parse various different custom JSON types as JSON
+app.use(bodyParser.json({ type: 'application/*+json' }))
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+
+// Middleware to log requests
+app.use((req: Request, res: Response, next: NextFunction) => {
+  console.log(`Received request: ${req.method} ${req.url}`);
+  next();
+});
+
+
+
+// Define a route to handle the dynamic username parameter
+app.use('/@:username', (req, res, next) => {
+  const username = req.params.username;
+  // You can add any middleware logic here
+  console.log(`Received request for user: ${username}`);
+  next();
+});
+app.use(userRoute);
+// Create an HTTP server with Express
+const server = createServer(app);
+
+
 let isSetupDone = false;
 
 let db: any;
@@ -83,7 +121,8 @@ try {
   process.exit(1);
 }
 
-// Middleware to hash IP addresses
+
+// THIS IS IN HERE FOR PRIVACY (DON'T REMOVE)
 app.use((req, res, next) => {
   const userAgent = req.headers['user-agent'] || '';
   if (req.headers['x-real-ip']) {
@@ -287,8 +326,6 @@ const generateSidebar = (menuStructure: MenuStructure, currentRoute: string) => 
     </div>
   `;
 
-  console.log(`The current Route is ${currentRoute} and version is ${JSON.stringify(versionKeys)}`);
-  console.log(`Normalized Route is ${normalizedRoute} and current version is ${currentVersion}`);
 
   const versionPages = versionKeys
     .map(version => {
@@ -522,6 +559,9 @@ generateRoutes(markdownDir);
 
 
 // THIS IS CORE CODE
+
+
+
 app.post('/setup', async (req, res) => {
   if (isSetupDone) {
     return res.status(403).json({ error: 'Setup has already been completed.' });
@@ -598,7 +638,19 @@ replaceVersion(landingPage, currentVersion);
 app.use('/episodeperformance', playDataRouter);
 
 // Use the playDataRouter for /episodeperformance endpoint
+app.use('/charts', getChartDataRouter);
+
+// Use the API for /api endpoint
+app.use('/api', apiRouter);
+
+
+
+
+// Use the playDataRouter for /episodeperformance endpoint
+app.use('/users', userPathRoute);
 app.use('/inbox', inboxFedDataRouter);
+app.use('/.well-known', wellknown);
+app.use('/nodeinfo', nodeinfo);
 
 app.get('/token', async (req, res) => {
   const secretKey = process.env.PERFORMANCE_SECRET_KEY;
@@ -611,10 +663,11 @@ app.get('/token', async (req, res) => {
     d: process.env.EXPIRES_IN
   };
 
-  const publicKey = req.headers['public_key'];
+
+  const publicKey = req.headers['x-pub-key'];
   let expiresIn = req.query.expiresIn as string || process.env.EXPIRES_IN as string;
 
-  if (publicKey) {
+  if (publicKey === process.env.PERFORMANCE_PUBLIC_KEY) {
     if (typeof publicKey !== 'string') {
       return res.status(400).json({ error: 'Invalid public key' });
     }
@@ -651,7 +704,10 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
 
 const startServer = () => {
   const PORT = process.env.PORT || 7000;
-  app.listen(PORT, () => {
+
+  const server = createServer(app);
+  setupWebSocketServer(server, db);  
+  server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
 };

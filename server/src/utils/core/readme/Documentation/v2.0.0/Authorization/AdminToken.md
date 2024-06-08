@@ -7,7 +7,7 @@ The `/token` endpoint in the Podcast Performance Server is used to generate a Po
 - **URL**: `/token`
 - **Method**: GET
 - **Headers**: 
-  - `public_key` (required)
+  - `X-PUB-KEY` (required)
 - **Response**: JSON object containing the generated token
 
 ## Prerequisites
@@ -18,14 +18,14 @@ The `/token` endpoint in the Podcast Performance Server is used to generate a Po
 
 ### Headers
 
-- **public_key** (REQUIRED): Public key associated with the request.
+- **X-PUB-KEY** (REQUIRED): Public key associated with the request.
 
 
 ### Example cURL Request
 
 ```sh
 curl --location --request GET 'http://localhost:7000/token' \
---header 'public_key: your-public-key' \
+--header 'x-pub-key: your-public-key' \
 ```
 
 

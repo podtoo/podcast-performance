@@ -7,7 +7,7 @@ The `/token` endpoint in the Podcast Performance Server is used to generate toke
 - **URL**: `/token`
 - **Method**: GET
 - **Headers**: 
-  - `public_key` (required for admin token)
+  - `X-PUB-KEY` (required for admin token)
 - **Query Parameters**: 
   - `expiresIn` (optional for non-admin token)
 - **Response**: JSON object containing the generated token
@@ -20,7 +20,7 @@ The `/token` endpoint in the Podcast Performance Server is used to generate toke
 
 ### Headers
 
-- **public_key**: The public key associated with the request. Required for admin token generation and optional for non-admin token generation.
+- **X-PUB-KEY**: The public key associated with the request. Required for admin token generation.
 
 ### Query Parameters
 
@@ -32,7 +32,7 @@ The `/token` endpoint in the Podcast Performance Server is used to generate toke
 
 ```sh
 curl --location --request GET 'http://localhost:7000/token' \
---header 'public_key: your-public-key' \
+--header 'X-PUB-KEY: your-public-key' \
 ```
 
 #### Non-Admin Token

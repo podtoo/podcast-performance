@@ -1,4 +1,4 @@
-### Version 1.0.2 Change Logs
+### Version 2.0.0 Change Logs
 
 This version has had a complete rewrite.
 

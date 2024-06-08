@@ -1,0 +1,84 @@
+{
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1",
+        {
+            "manuallyApprovesFollowers": "as:manuallyApprovesFollowers",
+            "toot": "http://podcastperformance.com/ns#",
+            "featured": {
+                "@id": "toot:featured",
+                "@type": "@id"
+            },
+            "featuredTags": {
+                "@id": "toot:featuredTags",
+                "@type": "@id"
+            },
+            "alsoKnownAs": {
+                "@id": "as:alsoKnownAs",
+                "@type": "@id"
+            },
+            "movedTo": {
+                "@id": "as:movedTo",
+                "@type": "@id"
+            },
+            "schema": "http://schema.org#",
+                "PropertyValue": "schema:PropertyValue",
+                "value": "schema:value",
+                "discoverable": "toot:discoverable",
+                "Device": "toot:Device",
+                "publicKeyBase64": "toot:publicKeyBase64",
+                "deviceId": "toot:deviceId",
+                "claim": {
+                    "@type": "@id",
+                    "@id": "toot:claim"
+                },
+                "fingerprintKey": {
+                    "@type": "@id",
+                    "@id": "toot:fingerprintKey"
+                },
+                "identityKey": {
+                    "@type": "@id",
+                    "@id": "toot:identityKey"
+                },
+                "devices": {
+                    "@type": "@id",
+                    "@id": "toot:devices"
+                },
+                "messageType": "toot:messageType",
+                "suspended": "toot:suspended",
+                "memorial": "toot:memorial",
+                "indexable": "toot:indexable",
+                "focalPoint": {
+                    "@container": "@list",
+                    "@id": "toot:focalPoint"
+                }
+        }
+    ],
+    "id": "https://{{serverDomain}}/@{{username}}",
+    "type": "{{type}}",
+    "following": "https://{{serverDomain}}/users/{{username}}/following",
+    "followers": "https://{{serverDomain}}/users/{{username}}/followers",
+    "inbox": "https://{{serverDomain}}/users/{{username}}/inbox",
+    "outbox": "https://{{serverDomain}}/users/{{username}}/outbox",
+    "featured": "https://{{serverDomain}}/users/{{username}}/collections/featured",
+    "featuredTags": "https://{{serverDomain}}/users/{{username}}/collections/tags",
+    "preferredUsername": "{{username}}",
+    "name": "{{name}}",
+    "summary": "",
+    "url": "https://{{serverDomain}}/@{{username}}",
+    "manuallyApprovesFollowers": false,
+    "discoverable": false,
+    "indexable": false,
+    "published": "{{createdAt}}",
+    "memorial": false,
+    "devices": "https://{{serverDomain}}/@{{username}}/collections/devices",
+    "publicKey": {
+        "id": "https://{{serverDomain}}/@{{username}}#main-key",
+        "owner": "https://{{serverDomain}}/@{{username}}",
+        "publicKeyPem": "{{publicKeyPem}}"
+    },
+    "tag": [],
+    "endpoints": {
+        "sharedInbox": "https://{{serverDomain}}/inbox"
+    }
+}

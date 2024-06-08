@@ -16,10 +16,6 @@ The `/token` endpoint in the Podcast Performance Server is used to generate a No
 
 ## Request
 
-### Headers
-
-- **public_key** (optional): Public key associated with the request.
-
 ### Query Parameters
 
 - **expiresIn** (optional): The expiration time for the token. If not provided, the default value from the `.env` environment variable `EXPIRES_IN` will be used.
